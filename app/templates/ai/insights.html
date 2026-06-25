@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}AI Insights — Budget Buddy AI{% endblock %}
+
+{% set type_config = {
+  'warning':    {'class':'warn',   'badge':'badge-yellow', 'icon':'⚠️'},
+  'danger':     {'class':'danger', 'badge':'badge-pink',   'icon':'🚨'},
+  'suggestion': {'class':'tip',    'badge':'badge-blue',   'icon':'💡'},
+  'tip':        {'class':'tip',    'badge':'badge-blue',   'icon':'💡'},
+  'saving':     {'class':'',       'badge':'badge-mint',   'icon':'💰'},
+  'prediction': {'class':'warn',   'badge':'badge-yellow', 'icon':'🔮'},
+} %}
+
+{% block content %}
+<div class="page-header">
+  <div class="flex-between">
+    <div>
+      <h1>AI Insights</h1>
+      <p class="subtitle">Smart recommendations based on your spending</p>
+    </div>
+    <button class="btn btn-primary" id="generateBtn" onclick="generateInsights()">
+      ✨ Generate New Insights
+    </button>
+  </div>
+</div>
+
+<div style="max-width:700px;" id="insightsContainer">
+  {% if insights %}
+    {% for insight in insights %}
+    {% set cfg = type_config.get(insight.insight_type, {'class':'','badge':'badge-mint','icon':'💡'}) %}
+    <div class="insight-card {{ cfg.class }}" style="margin-bottom:12px;border-radius:var(--radius-lg);">
+      <div class="flex-between mb-8">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span>{{ cfg.icon }}</span>
+          <span class="badge {{ cfg.badge }}">{{ insight.insight_type }}</span>
+        </div>
+        <span style="font-size:0.72rem;color:var(--text-muted);">{{ insight.generated_at }}</span>
+      </div>
+      <div class="insight-title">{{ insight.title }}</div>
+      <div class="insight-msg">{{ insight.message }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="card">
+    <div class="empty-state">
+      <span class="empty-state-icon">🤖</span>
+      <div class="empty-state-title">No insights yet</div>
+      <div class="empty-state-text">
+        Generate AI-powered insights to get personalized financial recommendations based on your spending patterns.
+      </div>
+      <button class="btn btn-primary" onclick="generateInsights()">✨ Generate Insights</button>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function generateInsights() {
+  const btn = document.getElementById('generateBtn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(11,17,32,0.3);border-top-color:#0B1120;"></span> Generating...';
+
+  fetch('/ai/generate', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+  }).then(r => r.json()).then(data => {
+    location.reload();
+  }).catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    const container = document.getElementById('insightsContainer');
+    const err = document.createElement('div');
+    err.className = 'insight-card danger';
+    err.style.cssText = 'margin-bottom:12px;border-radius:var(--radius-lg);';
+    err.innerHTML = '<div class="insight-title">Generation failed</div><div class="insight-msg">Could not reach the AI service. Check your API key in Settings or try again.</div>';
+    container.prepend(err);
+  });
+}
+</script>
+{% endblock %}

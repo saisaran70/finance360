@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"c:\\Users\\saisa\\python practise\\budget-buddy-ai\\.venv\\Scripts\\python.exe\" \"c:\\Users\\saisa\\python practise\\budget-buddy-ai\\scripts\\update_obsidian.py\"",
+            "shell": "powershell",
+            "timeout": 40,
+            "statusMessage": "Updating Obsidian vault..."
+          }
+        ]
+      }
+    ]
+  }
+}

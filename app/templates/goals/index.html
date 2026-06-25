@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}Goals — Budget Buddy AI{% endblock %}
+
+{% set type_emoji = {'savings':'💰','investment':'📈','emergency':'🛡️','vacation':'✈️'} %}
+{% set status_badge = {'active':'badge-blue','completed':'badge-mint','paused':'badge-yellow'} %}
+
+{% block content %}
+<div class="page-header">
+  <div class="flex-between">
+    <div>
+      <h1>Financial Goals</h1>
+      <p class="subtitle">{{ goals|length }} goal{{ 's' if goals|length != 1 else '' }} tracked</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('addGoalModal')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      New Goal
+    </button>
+  </div>
+</div>
+
+{% if goals %}
+<div class="grid-3">
+  {% for g in goals %}
+  <div class="card goal-card">
+    <span class="goal-emoji">{{ type_emoji.get(g.goal_type, '🎯') }}</span>
+    <div class="goal-type-badge">{{ g.goal_type | upper }}</div>
+    <div style="font-size:1rem;font-weight:700;margin-bottom:4px;color:var(--text-primary);">{{ g.name }}</div>
+    <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:16px;">
+      {% if g.target_date %}🗓 {{ g.target_date.strftime('%d %b %Y') }}{% else %}No deadline{% endif %}
+    </div>
+
+    <div class="flex-between mb-8">
+      <span style="font-size:0.75rem;color:var(--text-muted);">Progress</span>
+      <span style="font-size:0.875rem;font-weight:700;color:
+        {% if g.progress_percent >= 100 %}var(--mint)
+        {% elif g.progress_percent >= 60 %}var(--blue)
+        {% else %}var(--text-secondary){% endif %};">
+        {{ g.progress_percent }}%
+      </span>
+    </div>
+    <div class="progress-wrap" style="margin-bottom:14px;">
+      <div class="progress-bar {% if g.progress_percent >= 100 %}{% elif g.progress_percent < 30 %}warn{% endif %}"
+           style="width:{{ g.progress_percent }}%"></div>
+    </div>
+
+    <div class="flex-between mb-12" style="font-size:0.82rem;">
+      <div>
+        <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:2px;">Saved</div>
+        <div style="font-weight:700;color:var(--mint);">
+          {{ current_user.currency }} {{ "{:,.0f}".format(g.current_amount) }}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:2px;">Target</div>
+        <div style="font-weight:700;color:var(--text-primary);">
+          {{ current_user.currency }} {{ "{:,.0f}".format(g.target_amount) }}
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:8px 12px;background:var(--bg-tertiary);border-radius:var(--radius);
+                margin-bottom:14px;">
+      <div>
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:1px;">Monthly saving</div>
+        <div style="font-size:0.85rem;font-weight:700;color:var(--blue);">
+          {% if g.monthly_contribution and g.monthly_contribution > 0 %}
+            {{ current_user.currency }} {{ "{:,.0f}".format(g.monthly_contribution) }}
+          {% else %}
+            <span style="color:var(--text-muted);font-weight:400;">Not set</span>
+          {% endif %}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:1px;">ETA</div>
+        <div style="font-size:0.85rem;font-weight:700;color:var(--yellow);">
+          {% if g.months_to_goal %}
+            {{ g.months_to_goal }} mo
+          {% elif g.progress_percent >= 100 %}
+            <span style="color:var(--mint);">Done!</span>
+          {% else %}
+            <span style="color:var(--text-muted);font-weight:400;">—</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-between gap-8">
+      <span class="badge {{ status_badge.get(g.status, 'badge-blue') }}">{{ g.status }}</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline btn-sm"
+                onclick="openEditGoal({{ g.id }}, '{{ g.name }}', '{{ g.goal_type }}', {{ g.target_amount }}, {{ g.current_amount }}, {{ g.monthly_contribution or 0 }}, '{{ g.status }}', '{{ g.target_date.strftime('%Y-%m-%d') if g.target_date else '' }}')">
+          Edit
+        </button>
+        <form method="POST" action="{{ url_for('goals.delete', goal_id=g.id) }}"
+              onsubmit="return confirmDelete('Delete this goal?')" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-danger btn-sm" data-no-load="true">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <span class="empty-state-icon">🎯</span>
+    <div class="empty-state-title">No goals yet</div>
+    <div class="empty-state-text">Set a savings target and watch your progress grow.</div>
+    <button class="btn btn-primary" onclick="openModal('addGoalModal')">Create First Goal</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- Add Goal Modal -->
+<div class="modal-overlay" id="addGoalModal" onclick="closeModalOnOverlay(event,'addGoalModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">New Goal</span>
+      <button class="modal-close" onclick="closeModal('addGoalModal')">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('goals.add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">Goal Name</label>
+        <input type="text" name="name" class="form-control" placeholder="Emergency Fund" required autofocus/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Goal Type</label>
+        <select name="goal_type" class="form-control">
+          <option value="savings">💰 Savings</option>
+          <option value="investment">📈 Investment</option>
+          <option value="emergency">🛡️ Emergency Fund</option>
+          <option value="vacation">✈️ Vacation</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Target Amount ({{ current_user.currency }})</label>
+          <input type="number" name="target_amount" class="form-control" placeholder="50000" step="0.01" min="1" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Already Saved</label>
+          <input type="number" name="current_amount" class="form-control" placeholder="0" step="0.01" min="0" value="0"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monthly Saving Towards This Goal ({{ current_user.currency }})</label>
+        <input type="number" name="monthly_contribution" class="form-control" placeholder="0" step="0.01" min="0" value="0"/>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">How much you plan to set aside each month</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target Date (optional)</label>
+        <input type="date" name="target_date" class="form-control"/>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Create Goal</button>
+    </form>
+  </div>
+</div>
+
+<!-- Contribute Modal -->
+<div class="modal-overlay" id="contributeModal" onclick="closeModalOnOverlay(event,'contributeModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Contribution</span>
+      <button class="modal-close" onclick="closeModal('contributeModal')">✕</button>
+    </div>
+    <form method="POST" id="contributeForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p id="contributeGoalName" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px;"></p>
+      <div class="form-group">
+        <label class="form-label">Amount to Add (<span id="contributeCurrency"></span>)</label>
+        <input type="number" name="amount" id="contributeAmount" class="form-control"
+               step="0.01" min="1" required autofocus/>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">
+          Pre-filled with your monthly contribution — change if needed
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Add to Goal</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Goal Modal -->
+<div class="modal-overlay" id="editGoalModal" onclick="closeModalOnOverlay(event,'editGoalModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Edit Goal</span>
+      <button class="modal-close" onclick="closeModal('editGoalModal')">✕</button>
+    </div>
+    <form method="POST" id="editGoalForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label class="form-label">Goal Name</label>
+        <input type="text" name="name" id="editGoalName" class="form-control" required/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Goal Type</label>
+        <select name="goal_type" id="editGoalType" class="form-control">
+          <option value="savings">💰 Savings</option>
+          <option value="investment">📈 Investment</option>
+          <option value="emergency">🛡️ Emergency Fund</option>
+          <option value="vacation">✈️ Vacation</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Target Amount</label>
+          <input type="number" name="target_amount" id="editGoalTarget" class="form-control" step="0.01" min="1" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Saved So Far</label>
+          <input type="number" name="current_amount" id="editGoalCurrent" class="form-control" step="0.01" min="0"/>
+        </div>
+      </div>
+
+      <!-- Monthly contribution logger -->
+      <div style="background:var(--bg-tertiary);border-radius:var(--radius);padding:14px;margin-bottom:12px;">
+        <div style="font-size:0.72rem;font-weight:600;color:var(--mint);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Log This Month's Saving</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <input type="number" name="add_contribution" id="editGoalContribution" class="form-control"
+                 placeholder="0" step="0.01" min="0"/>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">
+            Amount added this month — auto-logged as a <strong style="color:var(--mint);">Goals 🎯</strong> expense in dashboard &amp; analytics
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monthly Saving ({{ current_user.currency }})</label>
+        <input type="number" name="monthly_contribution" id="editGoalContrib" class="form-control" step="0.01" min="0" placeholder="0"/>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">Amount set aside each month for this goal</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select name="status" id="editGoalStatus" class="form-control">
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+          <option value="paused">Paused</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target Date (optional)</label>
+        <input type="date" name="target_date" id="editGoalDate" class="form-control"/>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Update Goal</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openContribute(id, name, monthlyContrib, currency) {
+  document.getElementById('contributeForm').action = `/goals/${id}/contribute`;
+  document.getElementById('contributeGoalName').textContent = `Goal: ${name}`;
+  document.getElementById('contributeCurrency').textContent = currency;
+  document.getElementById('contributeAmount').value = monthlyContrib > 0 ? monthlyContrib : '';
+  openModal('contributeModal');
+}
+
+function openEditGoal(id, name, type, target, current, contrib, status, date) {
+  document.getElementById('editGoalForm').action = `/goals/${id}/edit`;
+  document.getElementById('editGoalName').value = name;
+  document.getElementById('editGoalType').value = type;
+  document.getElementById('editGoalTarget').value = target;
+  document.getElementById('editGoalCurrent').value = current;
+  document.getElementById('editGoalContrib').value = contrib;
+  document.getElementById('editGoalContribution').value = contrib > 0 ? contrib : '';
+  document.getElementById('editGoalStatus').value = status;
+  document.getElementById('editGoalDate').value = date;
+  openModal('editGoalModal');
+}
+</script>
+{% endblock %}
