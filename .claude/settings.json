@@ -5,10 +5,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"c:\\Users\\saisa\\python practise\\budget-buddy-ai\\.venv\\Scripts\\python.exe\" \"c:\\Users\\saisa\\python practise\\budget-buddy-ai\\scripts\\update_obsidian.py\"",
+            "command": "python \"c:\\Users\\saisa\\python practise\\finance360\\scripts\\update_obsidian.py\"; cd \"c:\\Users\\saisa\\python practise\\finance360\"; git add -A; $msg = \"Auto: vault + progress update $(Get-Date -Format 'yyyy-MM-dd HH:mm')\"; git diff --cached --quiet; if (-not $?) { git commit -m $msg; git push }",
             "shell": "powershell",
-            "timeout": 40,
-            "statusMessage": "Updating Obsidian vault..."
+            "timeout": 60,
+            "statusMessage": "Updating Obsidian vault and pushing to git..."
           }
         ]
       }
